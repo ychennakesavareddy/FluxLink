@@ -707,10 +707,6 @@
             }
 
             const currentHost = (window.location.hostname || "").toLowerCase();
-            // Production domain: fluxlink.chennareddy.in -> https://fluxlinkbackend.chennareddy.in
-            if (currentHost === "fluxlink.chennareddy.in" || currentHost.endsWith(".chennareddy.in")) {
-                return normalizeBackendUrl("https://fluxlinkbackend.chennareddy.in");
-            }
 
             // Local development
             if (currentHost === "localhost" || currentHost === "127.0.0.1" || currentHost === "") {
@@ -719,11 +715,7 @@
                 return normalizeBackendUrl(`${proto}//${currentHost || "127.0.0.1"}:8000`);
             }
 
-            // Same-origin fallback
-            if (window.location.origin && window.location.origin !== "null") {
-                return normalizeBackendUrl(window.location.origin);
-            }
-
+            // Production domains (fluxlink.chennareddy.in, *.vercel.app, or any deployed domain)
             return normalizeBackendUrl("https://fluxlinkbackend.chennareddy.in");
         }
 
@@ -855,6 +847,7 @@
                 showError(`Cannot reach backend at ${API_BASE}. Ensure the server is running and CORS is configured.`);
             } finally {
                 if (btn) { btn.disabled = false; btn.innerText = origText; }
+            }
         }
 
         function enterSession(data) {
@@ -1418,6 +1411,24 @@
                 </div>
             `;
         }
+
+        // Explicitly attach handlers to window for HTML event attribute binding
+        window.createSession = createSession;
+        window.joinSession = joinSession;
+        window.copySessionCode = copySessionCode;
+        window.promptEndSession = promptEndSession;
+        window.closeEndModal = closeEndModal;
+        window.confirmEndSession = confirmEndSession;
+        window.leaveSession = leaveSession;
+        window.triggerFileInput = triggerFileInput;
+        window.handleFileSelected = handleFileSelected;
+        window.sendPayload = sendPayload;
+        window.openViewModal = openViewModal;
+        window.closeViewModal = closeViewModal;
+        window.copyModalContent = copyModalContent;
+        window.copyCardContent = copyCardContent;
+        window.downloadMessageContent = downloadMessageContent;
+        window.loadHistory = loadHistory;
     </script>
 </body>
 </html>
