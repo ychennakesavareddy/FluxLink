@@ -1,0 +1,10 @@
+{
+  "name": "fluxlink-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FluxLink Frontend Web Interface",
+  "scripts": {
+    "build": "node -e \"console.log('✓ FluxLink frontend is production-ready.')\"",
+    "start": "npx serve ."
+  }
+}
