@@ -18,6 +18,7 @@ from chennalink.screens.create_session import CreateSessionScreen
 from chennalink.screens.connect_session import ConnectSessionScreen
 from chennalink.screens.waiting import WaitingScreen
 from chennalink.screens.code_viewer import CodeViewerScreen
+from chennalink.screens.help import HelpScreen
 from chennalink.services.local_storage import LocalStorage
 from chennalink.services.clipboard import copy_to_clipboard
 from chennalink.widgets.code_card import CodeCard
@@ -65,6 +66,7 @@ class ChennaLinkApp(App):
         Binding("ctrl+2", "switch_screen('receive')", "Receive", show=True),
         Binding("ctrl+3", "switch_screen('history')", "History", show=True),
         Binding("ctrl+4", "switch_screen('session')", "Session", show=True),
+        Binding("ctrl+h", "switch_screen('help')", "Help", show=True),
         Binding("ctrl+q", "quit", "Quit", show=True),
     ]
 
@@ -79,11 +81,13 @@ class ChennaLinkApp(App):
         "history": HistoryScreen,
         "session": SessionScreen,
         "code_viewer": CodeViewerScreen,
+        "help": HelpScreen,
     }
 
-    def __init__(self, send_file_on_startup=None, **kwargs):
+    def __init__(self, send_file_on_startup=None, backend_url=None, initial_screen=None, **kwargs):
         super().__init__(**kwargs)
         self.send_file_on_startup = send_file_on_startup
+        self.initial_screen = initial_screen
         self.local_storage = LocalStorage()
         import random
         device_id = self.local_storage.get_device_id()
@@ -92,17 +96,32 @@ class ChennaLinkApp(App):
             self.local_storage.save_device_id(device_id)
             
         self.session_data = Session(device_id=device_id, device_name=device_id)
-        backend_url = os.environ.get("CHENNALINK_BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
-        self.api_base = f"{backend_url}/api"
-        ws_proto = "wss" if backend_url.startswith("https") else "ws"
-        host_port = backend_url.split("://")[-1]
+        
+        default_backend = "https://fluxlinkbackend.chennareddy.in"
+        if os.environ.get("FLUXLINK_ENV") == "development" or os.environ.get("CHENNALINK_ENV") == "development" or "PYTEST_CURRENT_TEST" in os.environ:
+            default_backend = "http://127.0.0.1:8000"
+
+        resolved_backend = (
+            backend_url
+            or os.environ.get("FLUXLINK_BACKEND_URL")
+            or os.environ.get("CHENNALINK_BACKEND_URL")
+            or default_backend
+        ).rstrip("/")
+        
+        self.backend_url = resolved_backend
+        self.api_base = f"{resolved_backend}/api"
+        ws_proto = "wss" if resolved_backend.startswith("https") else "ws"
+        host_port = resolved_backend.split("://")[-1]
         self.ws_base = f"{ws_proto}://{host_port}/ws"
         self.ws = None
         self.ws_task = None
         self.ping_task = None
 
     def on_mount(self) -> None:
-        self.push_screen("welcome")
+        if self.initial_screen and self.initial_screen in self.SCREENS:
+            self.push_screen(self.initial_screen)
+        else:
+            self.push_screen("welcome")
         self.update_status_bars()
         
         if self.send_file_on_startup:

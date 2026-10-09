@@ -1,0 +1,20 @@
+[Unit]
+Description=FluxLink FastAPI Production Backend
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/opt/fluxlink
+Environment="PATH=/opt/fluxlink/.venv/bin"
+EnvironmentFile=/opt/fluxlink/.env
+ExecStart=/opt/fluxlink/.venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000 --workers 4 --proxy-headers --forwarded-allow-ips='*'
+Restart=always
+RestartSec=5s
+KillMode=mixed
+TimeoutStopSec=30s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

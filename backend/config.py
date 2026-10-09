@@ -15,13 +15,21 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     allow_local_fallback: bool = False
+    allowed_origins: str = "https://fluxlink.chennareddy.in,http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:5500"
     
     class Config:
         env_file = ".env"
         extra = "ignore"
 
+    def get_allowed_origins(self) -> list[str]:
+        origins = os.environ.get("ALLOWED_ORIGINS", self.allowed_origins)
+        if not origins or origins.strip() == "*":
+            return ["*"]
+        return [o.strip() for o in origins.split(",") if o.strip()]
+
     def is_production(self) -> bool:
-        return self.chennalink_env.strip().lower() in ("production", "prod")
+        env = os.environ.get("FLUXLINK_ENV") or self.chennalink_env
+        return env.strip().lower() in ("production", "prod")
 
     def validate_production(self) -> None:
         """

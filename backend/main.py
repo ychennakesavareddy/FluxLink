@@ -32,12 +32,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-app = FastAPI(title="Chennalink API", lifespan=lifespan)
+app = FastAPI(title="FluxLink API", lifespan=lifespan)
 
+origins = settings.get_allowed_origins()
+is_wildcard = origins == ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=not is_wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -46,12 +48,14 @@ app.add_middleware(
 def root():
     return RedirectResponse(url="/web/")
 
+@app.get("/health")
 @app.get("/api/health")
 def health_check():
     repo = get_repository()
     db_type = repo.__class__.__name__
     return {
         "status": "healthy",
+        "service": "fluxlink",
         "database": db_type,
         "database_backend": settings.db_backend,
         "storage_backend": settings.storage_backend,

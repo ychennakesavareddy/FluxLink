@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chennalink — P2P Code & Chat</title>
+    <title>FluxLink — Real-Time Code & Chat Bridge</title>
     <style>
         :root {
             --bg-color: #0b1120;
@@ -563,13 +563,13 @@
     <div id="setup-container">
         <div class="setup-card">
             <div class="setup-header">
-                <h1>⚡ Chennalink</h1>
-                <p>Peer-to-Peer Code & Text Streaming</p>
+                <h1>⚡ FluxLink</h1>
+                <p>Real-Time Code & Text Streaming</p>
             </div>
 
             <div class="form-group">
                 <label for="input_email">Email Address</label>
-                <input type="email" id="input_email" placeholder="user@example.com" value="browser@chennalink.dev">
+                <input type="email" id="input_email" placeholder="user@example.com" value="browser@fluxlink.dev">
             </div>
 
             <div class="form-group">
@@ -583,8 +583,8 @@
             </div>
 
             <div style="display: flex; gap: 10px; margin-top: 22px;">
-                <button type="button" class="btn btn-primary" style="flex: 1;" onclick="createSession()">Create Session</button>
-                <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="joinSession()">Join Session</button>
+                <button type="button" class="btn btn-primary" id="btn-create" style="flex: 1;" onclick="createSession()">Create Session</button>
+                <button type="button" class="btn btn-secondary" id="btn-join" style="flex: 1;" onclick="joinSession()">Join Session</button>
             </div>
 
             <div id="setup-error" class="error-banner hidden"></div>
@@ -596,7 +596,7 @@
         <!-- Header -->
         <header class="chat-header">
             <div class="header-left">
-                <div class="brand-title">⚡ Chennalink</div>
+                <div class="brand-title">⚡ FluxLink</div>
                 <div class="session-code-pill" onclick="copySessionCode()" title="Click to copy session code">
                     <span>Session:</span>
                     <span id="display-session-code">------</span>
@@ -695,15 +695,62 @@
     </div>
 
     <script>
-        const host = window.location.hostname || "127.0.0.1";
-        const backendPort = "8000";
-        const isHttps = window.location.protocol === "https:";
-        const API_BASE = `${isHttps ? "https:" : "http:"}//${host}:${backendPort}/api`;
-        const WS_BASE = `${isHttps ? "wss:" : "ws:"}//${host}:${backendPort}/ws`;
+        function resolveBackendConfig() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const overrideParam = urlParams.get('backend');
+            if (overrideParam) {
+                localStorage.setItem('fluxlink_backend_url', overrideParam);
+            }
+            const stored = localStorage.getItem('fluxlink_backend_url');
+            if (stored) {
+                return normalizeBackendUrl(stored);
+            }
+
+            const currentHost = (window.location.hostname || "").toLowerCase();
+            // Production domain: fluxlink.chennareddy.in -> https://fluxlinkbackend.chennareddy.in
+            if (currentHost === "fluxlink.chennareddy.in" || currentHost.endsWith(".chennareddy.in")) {
+                return normalizeBackendUrl("https://fluxlinkbackend.chennareddy.in");
+            }
+
+            // Local development
+            if (currentHost === "localhost" || currentHost === "127.0.0.1" || currentHost === "") {
+                const port = (window.location.port === "8000" || !window.location.port) ? "8000" : window.location.port;
+                const proto = window.location.protocol === "https:" ? "https:" : "http:";
+                return normalizeBackendUrl(`${proto}//${currentHost || "127.0.0.1"}:8000`);
+            }
+
+            // Same-origin fallback
+            if (window.location.origin && window.location.origin !== "null") {
+                return normalizeBackendUrl(window.location.origin);
+            }
+
+            return normalizeBackendUrl("https://fluxlinkbackend.chennareddy.in");
+        }
+
+        function normalizeBackendUrl(rawUrl) {
+            let url = (rawUrl || "https://fluxlinkbackend.chennareddy.in").trim().replace(/\/+$/, '');
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                url = "https://" + url;
+            }
+            const isHttps = url.startsWith("https:");
+            const wsProto = isHttps ? "wss:" : "ws:";
+            const hostAndPort = url.replace(/^https?:\/\//, '');
+            return {
+                baseUrl: url,
+                apiBase: `${url}/api`,
+                wsBase: `${wsProto}//${hostAndPort}/ws`
+            };
+        }
+
+        const backendConfig = resolveBackendConfig();
+        const API_BASE = backendConfig.apiBase;
+        const WS_BASE = backendConfig.wsBase;
 
         let currentSession = null;
         let isHost = false;
         let ws = null;
+        let reconnectTimer = null;
+        let isIntentionalDisconnect = false;
         let deviceId = "WEB-" + Math.random().toString(36).substring(2, 8).toUpperCase();
         
         // Exact message store: message_id -> { id, file_name, content, sender_device_id, created_at, direction, size_bytes }
@@ -745,6 +792,8 @@
         // Setup Actions
         async function createSession() {
             clearError();
+            const btn = document.getElementById('btn-create');
+            const origText = btn ? btn.innerText : "Create Session";
             const email = document.getElementById('input_email').value.trim();
             const name = document.getElementById('input_name').value.trim();
             const code = document.getElementById('input_code').value.trim().toUpperCase();
@@ -755,6 +804,7 @@
             }
 
             try {
+                if (btn) { btn.disabled = true; btn.innerText = "Connecting..."; }
                 const res = await fetch(`${API_BASE}/sessions/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -768,12 +818,16 @@
                     showError(data.detail || "Failed to create session.");
                 }
             } catch (e) {
-                showError(`Cannot reach backend at ${API_BASE}. Ensure the server is running.`);
+                showError(`Cannot reach backend at ${API_BASE}. Ensure the server is running and CORS is configured.`);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = origText; }
             }
         }
 
         async function joinSession() {
             clearError();
+            const btn = document.getElementById('btn-join');
+            const origText = btn ? btn.innerText : "Join Session";
             const email = document.getElementById('input_email').value.trim();
             const name = document.getElementById('input_name').value.trim();
             const code = document.getElementById('input_code').value.trim().toUpperCase();
@@ -784,6 +838,7 @@
             }
 
             try {
+                if (btn) { btn.disabled = true; btn.innerText = "Connecting..."; }
                 const res = await fetch(`${API_BASE}/sessions/join`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -797,8 +852,9 @@
                     showError(data.detail || "Failed to join session.");
                 }
             } catch (e) {
-                showError(`Cannot reach backend at ${API_BASE}. Ensure the server is running.`);
-            }
+                showError(`Cannot reach backend at ${API_BASE}. Ensure the server is running and CORS is configured.`);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = origText; }
         }
 
         function enterSession(data) {
@@ -829,11 +885,19 @@
         // WebSockets
         function connectWS() {
             if (!currentSession) return;
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return;
+            }
+            isIntentionalDisconnect = false;
             const wsUrl = `${WS_BASE}/${currentSession.session_code}/${currentSession.device_id}`;
             ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
                 console.log("WebSocket connected to", wsUrl);
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                    reconnectTimer = null;
+                }
                 loadHistory();
             };
 
@@ -847,12 +911,21 @@
             };
 
             ws.onclose = (event) => {
+                if (isIntentionalDisconnect) return;
                 if (event.code === 1008) {
                     alert("SESSION FULL or SESSION ENDED: Connection closed by server.");
+                    leaveSession();
                 } else if (event.code !== 1000) {
-                    console.warn("WebSocket closed unexpectedly:", event);
+                    console.warn("WebSocket closed unexpectedly. Scheduling reconnect in 3s...", event);
+                    if (!reconnectTimer && currentSession && !isIntentionalDisconnect) {
+                        reconnectTimer = setTimeout(() => {
+                            reconnectTimer = null;
+                            if (currentSession && !isIntentionalDisconnect) {
+                                connectWS();
+                            }
+                        }, 3000);
+                    }
                 }
-                leaveSession();
             };
         }
 
@@ -1321,9 +1394,14 @@
         }
 
         function leaveSession() {
+            isIntentionalDisconnect = true;
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
             if (ws) {
                 ws.onclose = null;
-                ws.close(1000);
+                try { ws.close(1000); } catch (_) {}
                 ws = null;
             }
             document.getElementById('chat-app').classList.add('hidden');
