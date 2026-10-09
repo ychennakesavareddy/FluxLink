@@ -1,0 +1,33 @@
+# Exclude backend, virtual environments, and databases from Vercel frontend upload
+.venv/
+env/
+__pycache__/
+*.pyc
+*.py[cod]
+
+# Python backend and CLI
+backend/
+src/
+deploy/
+tests/
+.pytest_cache/
+
+# Databases & local storage
+*.db
+*.sqlite3
+backend/chennalink.db
+
+# Shell scripts and docs
+*.log
+*.bat
+*.sh
+*.ps1
+2000_lines.py
+probe.py
+paste_test.py
+DIAGNOSIS.md
+FINAL_REPORT.md
+RUNNING.md
+README.md
+schema.sql
+pyproject.toml
