@@ -1,13 +1,26 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+try:
+    from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+    import uvicorn
+    FASTAPI_AVAILABLE = True
+except ImportError:
+    FastAPI = None
+    WebSocket = None
+    WebSocketDisconnect = None
+    HTTPException = None
+    uvicorn = None
+    FASTAPI_AVAILABLE = False
+
 from pydantic import BaseModel
-import uvicorn
 import random
 import string
 import json
 import uuid
 from typing import Dict, Optional, List
 
-app = FastAPI(title="Chennalink Local Server")
+if FASTAPI_AVAILABLE:
+    app = FastAPI(title="Chennalink Local Server")
+else:
+    app = None
 
 # In-memory storage
 # sessions = { "SESSION_CODE": { "id": "uuid", "devices": { "device_id": {"name": "...", "ws": websocket_or_none} } } }

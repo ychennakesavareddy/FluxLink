@@ -14,9 +14,14 @@ from chennalink.models.code_file import CodeFile
 
 class LocalStorage:
     def __init__(self, db_path: str = None):
-        profile = os.environ.get("CHENNALINK_PROFILE", "default")
+        profile = os.environ.get("FLUXLINK_PROFILE") or os.environ.get("CHENNALINK_PROFILE", "default")
         if db_path is None:
-            self.base_dir = Path.home() / ".chennalink" / profile
+            chennalink_dir = Path.home() / ".chennalink" / profile
+            fluxlink_dir = Path.home() / ".fluxlink" / profile
+            if chennalink_dir.exists() and not fluxlink_dir.exists():
+                self.base_dir = chennalink_dir
+            else:
+                self.base_dir = fluxlink_dir
         else:
             self.base_dir = Path(db_path).parent
             

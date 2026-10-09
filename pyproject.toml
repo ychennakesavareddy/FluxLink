@@ -3,35 +3,69 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "chennalink"
+name = "fluxlink"
 version = "0.1.0"
-description = "FluxLink: High-speed developer tool and real-time lossless source-code & file transfer bridge"
+description = "FluxLink: Real-time lossless source-code and file transfer bridge CLI"
 authors = [{ name = "Chenna Kesava Reddy", email = "yenuguchenna6una66@gmail.com" }]
 readme = "README.md"
-requires-python = ">=3.12"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+keywords = ["fluxlink", "p2p", "file-transfer", "code-transfer", "tui", "textual", "developer-tools", "realtime"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: File Sharing",
+    "Topic :: Utilities",
+]
 dependencies = [
     "textual>=0.50.0",
     "rich>=13.7.0",
     "pyperclip>=1.8.2",
     "pydantic>=2.0.0",
+    "httpx>=0.25.0",
+    "websockets>=12.0"
+]
+
+[project.optional-dependencies]
+server = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
     "pydantic-settings>=2.0.0",
     "supabase>=2.0.0",
     "psycopg[binary]>=3.1.0",
     "psycopg-pool>=3.1.0"
 ]
-
-[project.optional-dependencies]
 dev = [
     "pytest",
-    "pytest-asyncio"
+    "pytest-asyncio",
+    "build",
+    "twine"
 ]
 
+[project.urls]
+Homepage = "https://fluxlink.chennareddy.in"
+Repository = "https://github.com/ychennakesavareddy/FluxLink"
+
 [project.scripts]
-fluxlink = "chennalink.__main__:cli"
+fluxlink = "fluxlink.__main__:cli"
 chennalink = "chennalink.__main__:cli"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/chennalink"]
+packages = ["src/chennalink", "src/fluxlink"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/pyproject.toml"
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
